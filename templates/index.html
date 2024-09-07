@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Examination Platform</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        .header { background-color: #528ac9; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .tabs { display: flex; }
+        .tab { padding: 5px 10px; cursor: pointer; }
+        .tab.active { background-color: #3a6491; }
+        .profile { display: flex; align-items: center; }
+        .timer { margin-left: 20px; }
+        .main-content { display: flex; height: calc(100vh - 120px); }
+        .question-area { flex: 3; padding: 20px; overflow-y: auto; }
+        .navigation { flex: 1; background-color: #e5f6fd; padding: 20px; overflow-y: auto; }
+        .nav-button { margin: 5px; padding: 5px 10px; cursor: pointer; }
+        .nav-button.current { background-color: red; color: white; }
+        .nav-button.answered { background-color: green; color: white; }
+        .nav-button.visited { background-color: skyblue; color: black; }
+        .nav-button.review { background-color: yellow; }
+        .controls { margin-top: 20px; }
+        .controls button { margin-right: 10px; }
+        .footer { background-color: #f0f0f0; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .version { align-self: flex-end; }
+        .nav-button.correct { background-color: green; color: white; }
+        .nav-button.incorrect { background-color: red; color: white; }
+        #feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: none;
+        }
+        #timer {
+            font-weight: bold;
+            color: #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="tabs">
+            <div class="tab active">Paper 1</div>
+            <div class="tab">Paper 2</div>
+        </div>
+        <div>Section: <select id="section"><option>General Knowledge</option></select></div>
+        <div class="profile">
+            <span>John Smith</span>
+            <div id="timer">59:59</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="question-area">
+            <h2 id="question-number">Question No. 1</h2>
+            <p id="question-text"></p>
+            <div id="options"></div>
+            <p id="question-source" style="font-style: italic; color: #666;"></p>
+            <div class="controls">
+                <button id="mark-review">Mark for Review & Next</button>
+                <button id="clear-response">Clear Response</button>
+                <button id="save-next">Save & Next</button>
+                <button id="submit">Submit</button>
+            </div>
+        </div>
+        <div class="navigation">
+            <h3>Question Navigation</h3>
+            <div id="nav-buttons"></div>
+        </div>
+    </div>
+
+    <div id="feedback"></div>
+
+    <div class="footer">
+        <div>
+            <button id="view-instructions">View Instructions</button>
+        </div>
+        <div>
+            Language: <select id="language"><option>English</option></select>
+        </div>
+        <div class="version">Version: 17.07.00</div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            let currentQuestion = 1;
+            const totalQuestions = 40;
+            let answeredQuestions = new Set();
+            let visitedQuestions = new Set([1]); // Initialize with the first question
+            let correctQuestions = new Set();
+            let incorrectQuestions = new Set();
+
+            // Timer functionality
+            let timeLeft = 60 * 60 - 1; // 59:59 in seconds
+            function updateTimer() {
+                let minutes = Math.floor(timeLeft / 60);
+                let seconds = timeLeft % 60;
+                $('#timer').text(
+                    (minutes < 10 ? '0' : '') + minutes + ':' +
+                    (seconds < 10 ? '0' : '') + seconds
+                );
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    setTimeout(updateTimer, 1000);
+                } else {
+                    alert('Time is up!');
+                    // You can add functionality here to submit the quiz automatically
+                }
+            }
+            updateTimer();
+
+            function loadQuestion(questionId) {
+                $.ajax({
+                    url: '/quiz',
+                    method: 'POST',
+                    data: { action: 'get_question', question_id: questionId },
+                    success: function(question) {
+                        $('#question-number').text('Question No. ' + question.id);
+                        $('#question-text').text(question.question);
+                        let optionsHtml = '';
+                        ['A', 'B', 'C', 'D'].forEach(option => {
+                            const checked = option === question.user_answer ? 'checked' : '';
+                            optionsHtml += `<div><input type="radio" name="answer" value="${option}" ${checked}> ${question.options[option]}</div>`;
+                        });
+                        $('#options').html(optionsHtml);
+                        if (question.source) {
+                            $('#question-source').text('Source: ' + question.source).show();
+                        } else {
+                            $('#question-source').hide();
+                        }
+                        visitedQuestions.add(questionId);
+                        updateNavigation();
+                    }
+                });
+            }
+
+            function updateNavigation() {
+                let navHtml = '';
+                for (let i = 1; i <= totalQuestions; i++) {
+                    let className = i === currentQuestion ? 'current' : '';
+                    if (correctQuestions.has(i)) {
+                        className += ' correct';
+                    } else if (incorrectQuestions.has(i)) {
+                        className += ' incorrect';
+                    } else if (answeredQuestions.has(i)) {
+                        className += ' answered';
+                    } else if (visitedQuestions.has(i)) {
+                        className += ' visited';
+                    }
+                    navHtml += `<button class="nav-button ${className}" data-id="${i}">${i}</button>`;
+                }
+                $('#nav-buttons').html(navHtml);
+            }
+
+            $('#nav-buttons').on('click', '.nav-button', function() {
+                currentQuestion = $(this).data('id');
+                loadQuestion(currentQuestion);
+            });
+
+            $('#save-next').click(function() {
+                saveAnswer(true);
+            });
+
+            function saveAnswer(moveToNext) {
+                const answer = $('input[name="answer"]:checked').val();
+                $.ajax({
+                    url: '/quiz',
+                    method: 'POST',
+                    data: { action: 'submit_answer', question_id: currentQuestion, answer: answer },
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            answeredQuestions = new Set(response.answered);
+                            if (response.is_correct) {
+                                correctQuestions.add(currentQuestion);
+                                showFeedback("Correct! Well done!", "green", response.explanation, response.source);
+                            } else {
+                                incorrectQuestions.add(currentQuestion);
+                                showFeedback("Incorrect. Don't worry, keep trying!", "red", response.explanation, response.source);
+                            }
+                            updateNavigation();
+                            if (moveToNext && currentQuestion < totalQuestions) {
+                                currentQuestion++;
+                                loadQuestion(currentQuestion);
+                            }
+                        }
+                    }
+                });
+            }
+
+            function showFeedback(message, color, explanation, source) {
+                let feedbackHtml = `
+                    <h3 style="color: ${color};">${message}</h3>
+                    <p>${explanation}</p>
+                `;
+                if (source) {
+                    feedbackHtml += `<p><strong>Source:</strong> ${source}</p>`;
+                }
+                feedbackHtml += `<button onclick="$('#feedback').fadeOut()">Close</button>`;
+                $('#feedback').html(feedbackHtml).fadeIn();
+            }
+
+            // Initialize
+            loadQuestion(currentQuestion);
+            updateNavigation();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Setup</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        form { display: flex; flex-direction: column; }
+        label, input { margin-bottom: 10px; }
+        input[type="submit"] { cursor: pointer; padding: 10px; background-color: #528ac9; color: white; border: none; }
+    </style>
+</head>
+<body>
+    <h1>Quiz Setup</h1>
+    <form action="/start-quiz" method="post">
+        <label for="exam">Which Exam are you Preparing for:</label>
+        <input type="text" id="exam" name="exam" required placeholder="e.g., UPSC, GATE, CAT, JEE">
+
+        <label for="subject">Which Subject are you Preparing for:</label>
+        <input type="text" id="subject" name="subject" required placeholder="e.g., History, Computer Science, Mathematics">
+
+        <label for="previous_year">Use Previous Year Question Papers:</label>
+        <input type="checkbox" id="previous_year" name="previous_year" value="yes">
+
+        <input type="submit" value="Start Quiz">
+    </form>
+</body>
+</html>
